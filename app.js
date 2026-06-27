@@ -120,39 +120,7 @@
         }, 2000 + Math.random() * 2000);
       }
     },
-    simulateDisconnect() {
-      this._connected = false;
-      state.wsConnected = false;
-      updateConnectionStatus();
-      wsReconnectTimer = setTimeout(() => {
-        this._connected = true;
-        state.wsConnected = true;
-        updateConnectionStatus();
-        toast('Соединение восстановлено');
-      }, 3000 + Math.random() * 5000);
-    },
-    simulateMessage(chatId) {
-      if (!this._connected) return;
-      const chat = state.chats.find(c => c.id === chatId);
-      if (!chat) return;
-      const responses = [
-        'Понял, спасибо!', 'Хорошо, договорились', 'Да, конечно', 'Интересно, расскажи больше',
-        'Окей', 'Сейчас занят, напишу позже', 'Отличная идея!', 'Согласен', 'Нужно подумать',
-        'А что думаешь по этому поводу?', 'Звучит здорово!', 'Не уверен, что смогу',
-        'Попробуй перезагрузить', 'Мне кажется, это работает', 'Скинь ссылку, посмотрю'
-      ];
-      const msg = {
-        id: generateId(),
-        chatId,
-        senderId: chat.participantId,
-        text: responses[Math.floor(Math.random() * responses.length)],
-        timestamp: Date.now(),
-        status: 'read',
-        type: 'text'
-      };
-      this.emit('new_message', msg);
-      this.emit('typing_stop', { chatId, userId: chat.participantId });
-    }
+
   };
 
   // ==================== UTILITIES ====================
@@ -272,80 +240,7 @@
   }
 
   // ==================== DEMO DATA ====================
-  async function generateDemoData() {
-    const existingChats = await dbGetAll('chats');
-    if (existingChats.length > 0) return;
-
-    const contacts = [
-      { id: 'u_alice', name: 'Алиса', avatar: '', online: true },
-      { id: 'u_bob', name: 'Борис', avatar: '', online: false },
-      { id: 'u_carol', name: 'Карина', avatar: '', online: true },
-      { id: 'u_danil', name: 'Данил', avatar: '', online: false },
-      { id: 'u_elena', name: 'Елена', avatar: '', online: true },
-    ];
-
-    for (const c of contacts) {
-      await dbPut('users', c);
-    }
-
-    const demoMessages = {
-      'u_alice': [
-        'Привет! Как дела?', 'Нормально, спасибо! А у тебя?', 'Отлично! Давно не виделись',
-        'Да, надо встретиться. Когда удобно?', 'Как насчет пятницы?', 'Идеально, договорились!'
-      ],
-      'u_bob': [
-        'Привет, присылай документы', 'Ок, сейчас скину', 'Жду', 'Вот, посмотри',
-        'Хорошо, завтра скажу', 'Договорились'
-      ],
-      'u_carol': [
-        'Привет! Видела твой пост, очень круто', 'Спасибо! Ты тоже пишешь?',
-        'Да, хотела начать', 'Могу помочь с советами', 'Было бы здорово!'
-      ],
-      'u_danil': [
-        'Бро, есть задача', 'Какая?', 'Нужно сделать дизайн для клиента',
-        'Скинь бриф, посмотрю', 'Скинул в почту', 'Ок, посмотрю вечером'
-      ],
-      'u_elena': [
-        'Добрый день! Встреча переносится на 15:00', 'Хорошо, спасибо за информацию',
-        'Не за что!', 'Кстати, презентация готова', 'Отлично,准备好了'
-      ]
-    };
-
-    const now = Date.now();
-    for (const contact of contacts) {
-      const chatId = generateChatId();
-      const msgs = demoMessages[contact.id] || [];
-      let ts = now - msgs.length * 300000;
-
-      const chat = {
-        id: chatId,
-        participantId: contact.id,
-        participantName: contact.name,
-        participantAvatar: contact.avatar,
-        participantOnline: contact.online,
-        lastMessage: msgs[msgs.length - 1] || '',
-        lastMessageTime: ts,
-        unreadCount: Math.floor(Math.random() * 4)
-      };
-
-      await dbPut('chats', chat);
-
-      for (const text of msgs) {
-        const isUser = msgs.indexOf(text) % 2 === 1;
-        const msg = {
-          id: generateId(),
-          chatId,
-          senderId: isUser ? state.user.id : contact.id,
-          text,
-          timestamp: ts,
-          status: 'read',
-          type: 'text'
-        };
-        await dbPut('messages', msg);
-        ts += 300000;
-      }
-    }
-  }
+  // (удалено — мессенджер стартует чистым)
 
   // ==================== SHOW MESSENGER ====================
   async function showMessenger() {
@@ -353,7 +248,6 @@
     document.getElementById('messenger-screen').classList.add('active');
     document.getElementById('auth-screen').style.display = 'none';
 
-    await generateDemoData();
     await loadChats();
     await loadSettings();
 
@@ -370,7 +264,6 @@
 
     initWSHandlers();
 
-    setTimeout(() => ws.simulateDisconnect(), 15000 + Math.random() * 20000);
   }
 
   // ==================== LOAD CHATS ====================
@@ -682,14 +575,6 @@
     }
 
     ws.send('typing', { chatId: state.currentChatId, userId: state.user.id });
-
-    setTimeout(() => {
-      const replyTexts = [
-        'Понял, спасибо!', 'Хорошо', 'Окей', 'Сейчас занят, напишу позже',
-        'Отличная идея!', 'Да, конечно', 'Нужно подумать', 'Скинь подробнее'
-      ];
-      ws.simulateMessage(state.currentChatId);
-    }, 2000 + Math.random() * 3000);
 
     renderChatList();
   }
@@ -1475,12 +1360,7 @@
       showMessenger();
     }
 
-    // Auto reconnect simulation
-    setInterval(() => {
-      if (Math.random() < 0.03 && state.wsConnected) {
-        ws.simulateDisconnect();
-      }
-    }, 30000);
+
   }
 
   document.addEventListener('DOMContentLoaded', init);

@@ -668,6 +668,10 @@
     document.getElementById('chat-messages').appendChild(el);
     scrollToBottom();
 
+    const sendBtn = document.getElementById('send-btn');
+    sendBtn.classList.add('pulse');
+    setTimeout(() => sendBtn.classList.remove('pulse'), 400);
+
     ws.send('message', msg);
 
     if (type === 'text') {
@@ -1373,15 +1377,25 @@
   function initSidebar() {
     const toggle = document.getElementById('sidebar-toggle');
     const sidebar = document.getElementById('sidebar');
+    let overlay = document.querySelector('.sidebar-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'sidebar-overlay';
+      sidebar.parentNode.insertBefore(overlay, sidebar.nextSibling);
+    }
 
-    toggle.addEventListener('click', () => {
+    function toggleSidebar() {
       sidebar.classList.toggle('open');
+    }
+
+    toggle.addEventListener('click', toggleSidebar);
+
+    overlay.addEventListener('click', () => {
+      sidebar.classList.remove('open');
     });
 
-    document.addEventListener('click', e => {
-      if (window.innerWidth <= 768 && !sidebar.contains(e.target) && !toggle.contains(e.target)) {
-        sidebar.classList.remove('open');
-      }
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && window.innerWidth <= 768) sidebar.classList.remove('open');
     });
 
     document.getElementById('chat-search').addEventListener('input', e => {
